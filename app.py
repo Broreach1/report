@@ -58,7 +58,8 @@ def index():
         fields = [
             "date", "shift", "name", "total_glasses", "total_money",
             "aba_usd", "aba_khr", "acleda_usd", "acleda_khr", "other_bank",
-            "cash_usd", "cash_khr", "expense", "balance_status", "balance_amount"
+            "cash_usd", "cash_khr", "expense", "balance_status", "balance_amount",
+            "Time"
         ]
         data = {f: request.form.get(f, "") for f in fields}
 
@@ -79,7 +80,7 @@ def index():
         message = (
             f"📋 របាយការណ៍ថ្មី\n"
             f"📅 កាលបរិច្ឆេទ: {data['date']}\n"
-            f"📅 ម៉ោង: {data['time']}\n"
+            f"📅 ម៉ោង: {data['Time']}\n"
             f"⏰ វេន: {data['shift']}\n"
             f"👤 ឈ្មោះ: {data['name']}\n"
             f"🥤 ចំនួនកែវ: {data['total_glasses']}\n"

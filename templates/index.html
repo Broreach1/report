@@ -30,16 +30,22 @@
     <label for="date">📅 កាលបរិច្ឆេទ</label>
     <input id="date" name="date" type="date" placeholder="YYYY-MM-DD" required>
   </div>
-  
+  <!-- Time -->
   <div class="form-group">
-    <label for="Time">📅 ម៉ោង</label>
-    <input id="date" name="time" type="time" placeholder="Time" required>
-  </div>
+    <label for="Time">⏰ ម៉ោង</label>
+    <input id="Time" name="Time" type="Time">
+</div>
 
   <!-- Shift -->
   <div class="form-group">
     <label for="shift">⏰ វេន</label>
-    <input id="shift" name="shift" type="text" placeholder="វេន" required>
+      <select id="shift" name="shift" required>
+    <option value="">-- ជ្រើសវេន --</option>
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3 ">3</option>
+
+  </select>
   </div>
 
   <!-- Name Button -->

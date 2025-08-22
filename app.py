@@ -14,7 +14,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 CHAT_ID = os.getenv("CHAT_ID", "")
 
 # Flask app
-app = Flask(__name__, static_folder="static", template_folder="templates")
+app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "change-me")
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH_MB", "10")) * 1024 * 1024
 app.config["UPLOAD_FOLDER"] = os.getenv("UPLOAD_FOLDER", str(Path(__file__).parent / "uploads"))
@@ -79,6 +79,7 @@ def index():
         message = (
             f"📋 របាយការណ៍ថ្មី\n"
             f"📅 កាលបរិច្ឆេទ: {data['date']}\n"
+            f"📅 ម៉ោង: {data['time']}\n"
             f"⏰ វេន: {data['shift']}\n"
             f"👤 ឈ្មោះ: {data['name']}\n"
             f"🥤 ចំនួនកែវ: {data['total_glasses']}\n"

@@ -6,6 +6,7 @@ from flask import Flask, request, render_template, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 import requests
 from dotenv import load_dotenv
+import pandas as pd  # for Excel database
 
 # Load .env
 load_dotenv()
@@ -19,6 +20,9 @@ app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "change-me")
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH_MB", "10")) * 1024 * 1024
 app.config["UPLOAD_FOLDER"] = os.getenv("UPLOAD_FOLDER", str(Path(__file__).parent / "uploads"))
 Path(app.config["UPLOAD_FOLDER"]).mkdir(parents=True, exist_ok=True)
+
+# Excel database file
+EXCEL_FILE = Path(__file__).parent / "reports.xlsx"
 
 ALLOWED_EXTENSIONS = set(
     (os.getenv("ALLOWED_EXTENSIONS", "jpg,jpeg,png,pdf,doc,docx,xls,xlsx,txt,zip").split(","))
@@ -52,6 +56,16 @@ def tg_send_document(file_path: str, caption: str = "") -> dict:
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
+def save_to_excel(data: dict):
+    """Append submitted data into Excel database."""
+    df_new = pd.DataFrame([data])
+    if EXCEL_FILE.exists():
+        df_existing = pd.read_excel(EXCEL_FILE)
+        df_all = pd.concat([df_existing, df_new], ignore_index=True)
+    else:
+        df_all = df_new
+    df_all.to_excel(EXCEL_FILE, index=False)
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
@@ -62,6 +76,12 @@ def index():
             "Time"
         ]
         data = {f: request.form.get(f, "") for f in fields}
+
+        # Save report into Excel database
+        try:
+            save_to_excel(data)
+        except Exception as e:
+            flash(f"⚠️ Could not save to Excel: {e}", "error")
 
         # Attachment
         uploaded = request.files.get("attachment")
@@ -104,7 +124,7 @@ def index():
             except: pass
 
         if send_res.get("ok") or (attach_res and attach_res.get("ok")):
-            flash("Report sent to Telegram ✅", "success")
+            flash("Report sent to Telegram ✅ and saved to Excel 📊", "success")
         else:
             error_msg = send_res.get("error") or (attach_res.get("error") if attach_res else "Unknown error")
             flash(f"Failed to send report. Error: {error_msg}", "error")

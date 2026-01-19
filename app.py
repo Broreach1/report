@@ -27,9 +27,15 @@ EXCEL_FILE = Path(__file__).parent / "reports.xlsx"
 ALLOWED_EXTENSIONS = set(
     (os.getenv("ALLOWED_EXTENSIONS", "jpg,jpeg,png,pdf,doc,docx,xls,xlsx,txt,zip").split(","))
 )
+IMAGE_EXTENSIONS = {"jpg", "jpeg", "png"}
 
 def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_ext(filename: str) -> str:
+    if "." not in filename:
+        return ""
+    return filename.rsplit(".", 1)[1].lower()
 
 def tg_send_message(text: str) -> dict:
     if not BOT_TOKEN or not CHAT_ID:
@@ -49,6 +55,21 @@ def tg_send_document(file_path: str, caption: str = "") -> dict:
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument"
         with open(file_path, "rb") as f:
             files = {"document": (os.path.basename(file_path), f)}
+            data = {"chat_id": CHAT_ID, "caption": caption[:1024]}
+            resp = requests.post(url, data=data, files=files)
+            resp.raise_for_status()
+            return resp.json()
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+def tg_send_photo(file_path: str, caption: str = "") -> dict:
+    """Send image as real Telegram Photo (shows preview)."""
+    if not BOT_TOKEN or not CHAT_ID:
+        return {"ok": False, "error": "BOT_TOKEN or CHAT_ID not set"}
+    try:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+        with open(file_path, "rb") as f:
+            files = {"photo": f}
             data = {"chat_id": CHAT_ID, "caption": caption[:1024]}
             resp = requests.post(url, data=data, files=files)
             resp.raise_for_status()
@@ -83,14 +104,20 @@ def index():
         except Exception as e:
             flash(f"⚠️ Could not save to Excel: {e}", "error")
 
-        # Attachment
+        # Attachment (save to temp)
         uploaded = request.files.get("attachment")
         attachment_path = None
+        attachment_ext = ""
+        attachment_original_name = ""
+
         if uploaded and uploaded.filename:
-            filename = secure_filename(uploaded.filename)
-            if not allowed_file(filename):
-                flash(f"File type not allowed: {filename}", "error")
+            attachment_original_name = secure_filename(uploaded.filename)
+            if not allowed_file(attachment_original_name):
+                flash(f"File type not allowed: {attachment_original_name}", "error")
                 return redirect(url_for("index"))
+
+            attachment_ext = get_ext(attachment_original_name)
+
             fd, tmp_path = tempfile.mkstemp(prefix="upload_", dir=app.config["UPLOAD_FOLDER"])
             os.close(fd)
             uploaded.save(tmp_path)
@@ -100,7 +127,7 @@ def index():
         message = (
             f"📋 របាយការណ៍ថ្មី\n"
             f"📅 កាលបរិច្ឆេទ: {data['date']}\n"
-            f"📅 ម៉ោង: {data['Time']}\n"
+            f"⏰ ម៉ោង: {data['Time']}\n"
             f"⏰ វេន: {data['shift']}\n"
             f"👤 ឈ្មោះ: {data['name']}\n"
             f"🥤 ចំនួនកែវ: {data['total_glasses']}\n"
@@ -117,12 +144,23 @@ def index():
         )
 
         send_res = tg_send_message(message)
+
         attach_res = None
         if attachment_path:
-            attach_res = tg_send_document(attachment_path, caption=f"Attachment from {data['name']}")
-            try: os.remove(attachment_path)
-            except: pass
+            caption = f"Attachment from {data['name']}"
 
+            # If it's an image -> sendPhoto (shows preview)
+            if attachment_ext in IMAGE_EXTENSIONS:
+                attach_res = tg_send_photo(attachment_path, caption=caption)
+            else:
+                attach_res = tg_send_document(attachment_path, caption=caption)
+
+            try:
+                os.remove(attachment_path)
+            except:
+                pass
+
+        # Result
         if send_res.get("ok") or (attach_res and attach_res.get("ok")):
             flash("Report sent to Telegram ✅ and saved to Excel 📊", "success")
         else:

@@ -1,138 +1,157 @@
 <!doctype html>
 <html lang="km">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Submit Report → Telegram</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Submit Report → Telegram</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<div class="wrap">
-<div class="card">
-<h1>📋 បញ្ជូនរបាយការណ៍</h1>
-<p class="hint">បំពេញទម្រង់ខាងក្រោម របាយការណ៍នឹងត្រូវផ្ញើទៅ Telegram Bot របស់អ្នក។</p>
+  <div class="wrap">
+    <div class="card">
+      <h1>📋 បញ្ជូនរបាយការណ៍</h1>
+      <p class="hint">បំពេញទម្រង់ខាងក្រោម របាយការណ៍នឹងត្រូវផ្ញើទៅ Telegram Bot របស់អ្នក។</p>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-      <div class="msg {{ category }}">{{ message }}</div>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="msg {{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
 
-{% if not chat_set %}
-  <p class="msg error">⚠️ BOT_TOKEN / CHAT_ID មិនទាន់កំណត់។ សូមកែ .env មុនប្រើ។</p>
-{% endif %}
+      {% if not chat_set %}
+        <p class="msg error">⚠️ BOT_TOKEN / CHAT_ID មិនទាន់កំណត់។ សូមកែ .env មុនប្រើ។</p>
+      {% endif %}
 
-<form method="POST" enctype="multipart/form-data" action="/">
-  <!-- Date -->
-  <div class="form-group">
-    <label for="date">📅 កាលបរិច្ឆេទ</label>
-    <input id="date" name="date" type="date" placeholder="YYYY-MM-DD" required>
-  </div>
-  <!-- Time -->
-  <div class="form-group">
-    <label for="Time">⏰ ម៉ោង</label>
-    <input id="Time" name="Time" type="Time">
-</div>
+      <form method="POST" enctype="multipart/form-data" action="/">
+        <!-- Date -->
+        <div class="form-group">
+          <label for="date">📅 កាលបរិច្ឆេទ</label>
+          <input id="date" name="date" type="date" required>
+        </div>
 
-  <!-- Shift -->
-  <div class="form-group">
-    <label for="shift">⏰ វេន</label>
-      <select id="shift" name="shift" required>
-    <option value="">-- ជ្រើសវេន --</option>
-    <option value="1">1</option>
-    <option value="2">2</option>
-    <option value="3 ">3</option>
+        <!-- Time -->
+        <div class="form-group">
+          <label for="Time">⏰ ម៉ោង</label>
+          <input id="Time" name="Time" type="time">
+        </div>
 
-  </select>
-  </div>
+        <!-- Shift -->
+        <div class="form-group">
+          <label for="shift">⏰ វេន</label>
+          <select id="shift" name="shift" required>
+            <option value="">-- ជ្រើសវេន --</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
 
-  <!-- Name Button -->
-<div class="form-group">
-  <label for="name">👤 ឈ្មោះ</label>
-  <select id="name" name="name" required>
-    <option value="">-- ជ្រើសឈ្មោះ --</option>
-    <option value="Pheary">Pheary</option>
-    <option value="Lin">Lin</option>
-    <option value="Choy Sokna">Choy Sokna</option>
-    <option value="Sun Ni">Sun Ni</option>
-    <option value="Neath">Neath</option>
-    <option value="Reach">Reach</option>
-    <option value="SARY">SARY</option>
-    <option value="Pich">Pich</option>
-  </select>
-</div>
+        <!-- Name -->
+        <div class="form-group">
+          <label for="name">👤 ឈ្មោះ</label>
+          <select id="name" name="name" required>
+            <option value="">-- ជ្រើសឈ្មោះ --</option>
+            <option value="Pheary">Pheary</option>
+            <option value="Lin">Lin</option>
+            <option value="Choy Sokna">Choy Sokna</option>
+            <option value="Sun Ni">Sun Ni</option>
+            <option value="Neath">Neath</option>
+            <option value="Reach">Reach</option>
+            <option value="SARY">SARY</option>
+            <option value="Pich">Pich</option>
+          </select>
+        </div>
 
-  <!-- Totals -->
-  <div class="form-group">
-    <label for="total_glasses">🥤 ចំនួនកែវ</label>
-    <input id="total_glasses" name="total_glasses" type="text">
-  </div>
-  <div class="form-group">
-    <label for="total_money">💵 លុយសរុប</label>
-    <input id="total_money" name="total_money" type="text">
-  </div>
+        <!-- Totals -->
+        <div class="form-group">
+          <label for="total_glasses">🥤 ចំនួនកែវ</label>
+          <input id="total_glasses" name="total_glasses" type="text" inputmode="numeric">
+        </div>
 
-  <!-- Banks -->
-  <h3>🏦 Banks</h3>
-  <div class="form-group"><label>Canadia Bank ($)</label><input name="aba_usd" type="text"></div>
-  <div class="form-group"><label>Canadia Bank (៛)</label><input name="aba_khr" type="text"></div>
-  <div class="form-group"><label>ACLEDA ($)</label><input name="acleda_usd" type="text"></div>
-  <div class="form-group"><label>ACLEDA (៛)</label><input name="acleda_khr" type="text"></div>
-  <div class="form-group"><label>Visa Card</label><input name="other_bank" type="text"></div>
-  <div class="form-group"><label>Other Bank</label><input name="other_bank" type="text"></div>
+        <div class="form-group">
+          <label for="total_money">💵 លុយសរុប</label>
+          <input id="total_money" name="total_money" type="text" inputmode="decimal">
+        </div>
 
-  <!-- Cash -->
-  <h3>💰 Cash</h3>
-  <div class="form-group"><label>លុយដុល្លារ ($)</label><input name="cash_usd" type="text"></div>
-  <div class="form-group"><label>លុយរៀល (៛)</label><input name="cash_khr" type="text"></div>
+        <!-- Banks -->
+        <h3>🏦 Banks</h3>
+        <div class="form-group">
+          <label for="aba_usd">Canadia Bank ($)</label>
+          <input id="aba_usd" name="aba_usd" type="text" inputmode="decimal">
+        </div>
 
-  <!-- Expense -->
-  <div class="form-group">
-    <label for="expense">💸 ចំណាយ</label>
-    <textarea id="expense" name="expense" rows="4" placeholder="ចូលចំណាយលម្អិត"></textarea>
-  </div>
+        <div class="form-group">
+          <label for="aba_khr">Canadia Bank (៛)</label>
+          <input id="aba_khr" name="aba_khr" type="text" inputmode="numeric">
+        </div>
 
-  <!-- Balance -->
-  <div class="form-group">
-    <label for="balance_status">⚖️ លើស / បាត</label>
-    <div class="inline-fields">
-      <select id="balance_status" name="balance_status" optional>
-        <option value="">-- ជ្រើសរើស --</option>
-        <option value="លើស">លើស</option>
-        <option value="បាត">បាត</option>
-      </select>
-      <input id="balance_amount" name="balance_amount" type="text" placeholder="ចំនួន">
+        <div class="form-group">
+          <label for="acleda_usd">ACLEDA ($)</label>
+          <input id="acleda_usd" name="acleda_usd" type="text" inputmode="decimal">
+        </div>
+
+        <div class="form-group">
+          <label for="acleda_khr">ACLEDA (៛)</label>
+          <input id="acleda_khr" name="acleda_khr" type="text" inputmode="numeric">
+        </div>
+
+        <div class="form-group">
+          <label for="visa_card">Visa Card</label>
+          <input id="visa_card" name="visa_card" type="text">
+        </div>
+
+        <div class="form-group">
+          <label for="other_bank">Other Bank</label>
+          <input id="other_bank" name="other_bank" type="text">
+        </div>
+
+        <!-- Cash -->
+        <h3>💰 Cash</h3>
+        <div class="form-group">
+          <label for="cash_usd">លុយដុល្លារ ($)</label>
+          <input id="cash_usd" name="cash_usd" type="text" inputmode="decimal">
+        </div>
+
+        <div class="form-group">
+          <label for="cash_khr">លុយរៀល (៛)</label>
+          <input id="cash_khr" name="cash_khr" type="text" inputmode="numeric">
+        </div>
+
+        <!-- Expense -->
+        <div class="form-group">
+          <label for="expense">💸 ចំណាយ</label>
+          <textarea id="expense" name="expense" rows="4" placeholder="ចូលចំណាយលម្អិត"></textarea>
+        </div>
+
+        <!-- Balance -->
+        <div class="form-group">
+          <label for="balance_status">⚖️ លើស / បាត</label>
+          <div class="inline-fields">
+            <select id="balance_status" name="balance_status">
+              <option value="">-- ជ្រើសរើស --</option>
+              <option value="លើស">លើស</option>
+              <option value="បាត">បាត</option>
+            </select>
+            <input id="balance_amount" name="balance_amount" type="text" placeholder="ចំនួន" inputmode="decimal">
+          </div>
+        </div>
+
+        <!-- Attachment -->
+        <div class="form-group">
+          <label for="attachment">📎 Attachment (optional)</label>
+          <input
+            id="attachment"
+            name="attachment"
+            type="file"
+            accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+          >
+        </div>
+
+        <button type="submit">🚀 Send to Telegram</button>
+      </form>
     </div>
   </div>
-
-  <!-- Attachment -->
-  <div class="form-group">
-    <label for="attachment">📎 Attachment (optional)</label>
-    <input id="attachment" name="attachment" type="file">
-  </div>
-
-  <button type="submit">🚀 Send to Telegram</button>
-</form>
-</div>
-</div>
-
-<script>
-const names = ["Name A", "Name B", "Name C"];
-const btn = document.getElementById("chooseNameBtn");
-const hiddenInput = document.getElementById("name");
-const display = document.getElementById("selectedName");
-
-btn.addEventListener("click", () => {
-  let choice = prompt("សូមជ្រើសឈ្មោះ: " + names.join(", "));
-  if(choice && names.includes(choice)){
-    hiddenInput.value = choice;
-    display.textContent = choice;
-  } else if(choice){
-    alert("ឈ្មោះមិនមានក្នុងបញ្ជី!");
-  }
-});
-</script>
 </body>
 </html>

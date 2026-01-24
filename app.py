@@ -2,11 +2,12 @@
 import os
 import tempfile
 from pathlib import Path
-from flask import Flask, request, render_template, redirect, url_for, flash
-from werkzeug.utils import secure_filename
+
+import pandas as pd
 import requests
 from dotenv import load_dotenv
-import pandas as pd  # for Excel database
+from flask import Flask, request, render_template, redirect, url_for, flash
+from werkzeug.utils import secure_filename
 
 # Load .env
 load_dotenv()
@@ -29,6 +30,9 @@ ALLOWED_EXTENSIONS = set(
 )
 IMAGE_EXTENSIONS = {"jpg", "jpeg", "png"}
 
+# -----------------------------
+# Helpers
+# -----------------------------
 def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -87,6 +91,27 @@ def save_to_excel(data: dict):
         df_all = df_new
     df_all.to_excel(EXCEL_FILE, index=False)
 
+def load_reports_df() -> pd.DataFrame:
+    """
+    Load Excel and keep only columns that contain at least one non-empty value.
+    This is ONLY for display (it does not change the Excel schema on disk).
+    """
+    if not EXCEL_FILE.exists():
+        return pd.DataFrame()
+
+    df = pd.read_excel(EXCEL_FILE)
+
+    # Treat "" and whitespace-only as empty
+    df = df.replace(r"^\s*$", pd.NA, regex=True)
+
+    # Drop columns where all values are empty
+    df = df.dropna(axis=1, how="all")
+
+    return df
+
+# -----------------------------
+# Routes
+# -----------------------------
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
@@ -157,7 +182,7 @@ def index():
 
             try:
                 os.remove(attachment_path)
-            except:
+            except Exception:
                 pass
 
         # Result
@@ -170,6 +195,16 @@ def index():
         return redirect(url_for("index"))
 
     return render_template("index.html", chat_set=bool(BOT_TOKEN and CHAT_ID))
+
+@app.route("/reports", methods=["GET"])
+def reports():
+    """
+    Show table with ONLY columns that have at least one value in the whole Excel file.
+    """
+    df = load_reports_df()
+    columns = df.columns.tolist()
+    rows = df.fillna("").to_dict(orient="records")
+    return render_template("reports.html", columns=columns, rows=rows)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)

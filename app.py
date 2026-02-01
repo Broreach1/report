@@ -14,8 +14,8 @@ from werkzeug.utils import secure_filename
 # -----------------------------
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-CHAT_ID = os.getenv("CHAT_ID", "")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+CHAT_ID = os.getenv("CHAT_ID", "").strip()
 
 # -----------------------------
 # Flask app
@@ -47,45 +47,74 @@ def get_ext(filename: str) -> str:
     return filename.rsplit(".", 1)[1].lower()
 
 
+def tg_api_url(method: str) -> str:
+    return f"https://api.telegram.org/bot{BOT_TOKEN}/{method}"
+
+
 def tg_send_message(text: str) -> dict:
+    """Send Telegram text message."""
     if not BOT_TOKEN or not CHAT_ID:
         return {"ok": False, "error": "BOT_TOKEN or CHAT_ID not set"}
+
     try:
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-        resp = requests.post(url, json={"chat_id": CHAT_ID, "text": text})
-        resp.raise_for_status()
-        return resp.json()
+        resp = requests.post(
+            tg_api_url("sendMessage"),
+            json={"chat_id": CHAT_ID, "text": text},
+            timeout=20
+        )
+        # If Telegram returns error, show it
+        data = resp.json()
+        if not data.get("ok"):
+            return {"ok": False, "error": data.get("description", "Telegram error")}
+        return data
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
 
 def tg_send_document(file_path: str, caption: str = "") -> dict:
+    """Send any file as document."""
     if not BOT_TOKEN or not CHAT_ID:
         return {"ok": False, "error": "BOT_TOKEN or CHAT_ID not set"}
+
     try:
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument"
         with open(file_path, "rb") as f:
             files = {"document": (os.path.basename(file_path), f)}
             data = {"chat_id": CHAT_ID, "caption": caption[:1024]}
-            resp = requests.post(url, data=data, files=files)
-            resp.raise_for_status()
-            return resp.json()
+
+            resp = requests.post(
+                tg_api_url("sendDocument"),
+                data=data,
+                files=files,
+                timeout=60
+            )
+            res = resp.json()
+            if not res.get("ok"):
+                return {"ok": False, "error": res.get("description", "Telegram error")}
+            return res
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
 
 def tg_send_photo(file_path: str, caption: str = "") -> dict:
-    """Send image as real Telegram Photo (shows preview)."""
+    """Send image as Telegram photo (shows preview)."""
     if not BOT_TOKEN or not CHAT_ID:
         return {"ok": False, "error": "BOT_TOKEN or CHAT_ID not set"}
+
     try:
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
         with open(file_path, "rb") as f:
             files = {"photo": f}
             data = {"chat_id": CHAT_ID, "caption": caption[:1024]}
-            resp = requests.post(url, data=data, files=files)
-            resp.raise_for_status()
-            return resp.json()
+
+            resp = requests.post(
+                tg_api_url("sendPhoto"),
+                data=data,
+                files=files,
+                timeout=60
+            )
+            res = resp.json()
+            if not res.get("ok"):
+                return {"ok": False, "error": res.get("description", "Telegram error")}
+            return res
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
@@ -105,23 +134,19 @@ def load_reports_df() -> pd.DataFrame:
     """
     Load Excel and show ONLY columns that contain at least one real value.
     - Treat "" and whitespace-only as empty
-    - Keeps column if it has >= 1 non-empty cell in entire column
     """
     if not EXCEL_FILE.exists():
         return pd.DataFrame()
 
     df = pd.read_excel(EXCEL_FILE)
 
-    # 1) Trim spaces from string cells
+    # trim whitespace on strings
     df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
 
-    # 2) Convert blank strings to NA
+    # blank strings to NA
     df = df.replace(r"^\s*$", pd.NA, regex=True)
 
-    # OPTIONAL: treat numeric 0 as empty (uncomment if you want)
-    # df = df.replace(0, pd.NA)
-
-    # 3) Keep only columns that have at least one non-NA value
+    # keep columns with at least 1 value
     keep_cols = df.columns[df.notna().any()].tolist()
     df = df[keep_cols]
 
@@ -142,25 +167,24 @@ def index():
         ]
         data = {f: request.form.get(f, "") for f in fields}
 
-        # Save report into Excel database
+        # Save report into Excel
         try:
             save_to_excel(data)
         except Exception as e:
             flash(f"⚠️ Could not save to Excel: {e}", "error")
 
-        # Attachment (save to temp)
+        # Attachment
         uploaded = request.files.get("attachment")
         attachment_path = None
         attachment_ext = ""
-        attachment_original_name = ""
 
         if uploaded and uploaded.filename:
-            attachment_original_name = secure_filename(uploaded.filename)
-            if not allowed_file(attachment_original_name):
-                flash(f"File type not allowed: {attachment_original_name}", "error")
+            filename = secure_filename(uploaded.filename)
+            if not allowed_file(filename):
+                flash(f"File type not allowed: {filename}", "error")
                 return redirect(url_for("index"))
 
-            attachment_ext = get_ext(attachment_original_name)
+            attachment_ext = get_ext(filename)
 
             fd, tmp_path = tempfile.mkstemp(prefix="upload_", dir=app.config["UPLOAD_FOLDER"])
             os.close(fd)
@@ -193,7 +217,6 @@ def index():
         if attachment_path:
             caption = f"Attachment from {data['name']}"
 
-            # If it's an image -> sendPhoto (shows preview)
             if attachment_ext in IMAGE_EXTENSIONS:
                 attach_res = tg_send_photo(attachment_path, caption=caption)
             else:
@@ -205,11 +228,12 @@ def index():
                 pass
 
         # Result
-        if send_res.get("ok") or (attach_res and attach_res.get("ok")):
+        ok_any = send_res.get("ok") or (attach_res and attach_res.get("ok"))
+        if ok_any:
             flash("Report sent to Telegram ✅ and saved to Excel 📊", "success")
         else:
-            error_msg = send_res.get("error") or (attach_res.get("error") if attach_res else "Unknown error")
-            flash(f"Failed to send report. Error: {error_msg}", "error")
+            err = send_res.get("error") or (attach_res.get("error") if attach_res else "Unknown error")
+            flash(f"Failed to send report. Error: {err}", "error")
 
         return redirect(url_for("index"))
 
@@ -218,9 +242,6 @@ def index():
 
 @app.route("/reports", methods=["GET"])
 def reports():
-    """
-    Show table with ONLY columns that have at least one value in the whole Excel file.
-    """
     df = load_reports_df()
     columns = df.columns.tolist()
     rows = df.fillna("").to_dict(orient="records")

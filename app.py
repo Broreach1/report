@@ -9,13 +9,17 @@ from dotenv import load_dotenv
 from flask import Flask, request, render_template, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 
+# -----------------------------
 # Load .env
+# -----------------------------
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 CHAT_ID = os.getenv("CHAT_ID", "")
 
+# -----------------------------
 # Flask app
+# -----------------------------
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "change-me")
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH_MB", "10")) * 1024 * 1024
@@ -36,10 +40,12 @@ IMAGE_EXTENSIONS = {"jpg", "jpeg", "png"}
 def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
 def get_ext(filename: str) -> str:
     if "." not in filename:
         return ""
     return filename.rsplit(".", 1)[1].lower()
+
 
 def tg_send_message(text: str) -> dict:
     if not BOT_TOKEN or not CHAT_ID:
@@ -51,6 +57,7 @@ def tg_send_message(text: str) -> dict:
         return resp.json()
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
 
 def tg_send_document(file_path: str, caption: str = "") -> dict:
     if not BOT_TOKEN or not CHAT_ID:
@@ -65,6 +72,7 @@ def tg_send_document(file_path: str, caption: str = "") -> dict:
             return resp.json()
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
 
 def tg_send_photo(file_path: str, caption: str = "") -> dict:
     """Send image as real Telegram Photo (shows preview)."""
@@ -81,6 +89,7 @@ def tg_send_photo(file_path: str, caption: str = "") -> dict:
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
+
 def save_to_excel(data: dict):
     """Append submitted data into Excel database."""
     df_new = pd.DataFrame([data])
@@ -91,23 +100,33 @@ def save_to_excel(data: dict):
         df_all = df_new
     df_all.to_excel(EXCEL_FILE, index=False)
 
+
 def load_reports_df() -> pd.DataFrame:
     """
-    Load Excel and keep only columns that contain at least one non-empty value.
-    This is ONLY for display (it does not change the Excel schema on disk).
+    Load Excel and show ONLY columns that contain at least one real value.
+    - Treat "" and whitespace-only as empty
+    - Keeps column if it has >= 1 non-empty cell in entire column
     """
     if not EXCEL_FILE.exists():
         return pd.DataFrame()
 
     df = pd.read_excel(EXCEL_FILE)
 
-    # Treat "" and whitespace-only as empty
+    # 1) Trim spaces from string cells
+    df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+
+    # 2) Convert blank strings to NA
     df = df.replace(r"^\s*$", pd.NA, regex=True)
 
-    # Drop columns where all values are empty
-    df = df.dropna(axis=1, how="all")
+    # OPTIONAL: treat numeric 0 as empty (uncomment if you want)
+    # df = df.replace(0, pd.NA)
+
+    # 3) Keep only columns that have at least one non-NA value
+    keep_cols = df.columns[df.notna().any()].tolist()
+    df = df[keep_cols]
 
     return df
+
 
 # -----------------------------
 # Routes
@@ -196,6 +215,7 @@ def index():
 
     return render_template("index.html", chat_set=bool(BOT_TOKEN and CHAT_ID))
 
+
 @app.route("/reports", methods=["GET"])
 def reports():
     """
@@ -205,6 +225,7 @@ def reports():
     columns = df.columns.tolist()
     rows = df.fillna("").to_dict(orient="records")
     return render_template("reports.html", columns=columns, rows=rows)
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)

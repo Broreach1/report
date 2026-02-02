@@ -23,7 +23,10 @@ CHAT_ID = os.getenv("CHAT_ID", "").strip()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "change-me")
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH_MB", "10")) * 1024 * 1024
-app.config["UPLOAD_FOLDER"] = os.getenv("UPLOAD_FOLDER", str(Path(__file__).parent / "uploads"))
+app.config["UPLOAD_FOLDER"] = os.getenv(
+    "UPLOAD_FOLDER",
+    str(Path(__file__).parent / "uploads")
+)
 Path(app.config["UPLOAD_FOLDER"]).mkdir(parents=True, exist_ok=True)
 
 # Excel database file
@@ -32,6 +35,8 @@ EXCEL_FILE = Path(__file__).parent / "reports.xlsx"
 ALLOWED_EXTENSIONS = set(
     (os.getenv("ALLOWED_EXTENSIONS", "jpg,jpeg,png,pdf,doc,docx,xls,xlsx,txt,zip").split(","))
 )
+ALLOWED_EXTENSIONS = {x.strip().lower() for x in ALLOWED_EXTENSIONS if x.strip()}
+
 IMAGE_EXTENSIONS = {"jpg", "jpeg", "png"}
 
 # -----------------------------
@@ -62,7 +67,6 @@ def tg_send_message(text: str) -> dict:
             json={"chat_id": CHAT_ID, "text": text},
             timeout=20
         )
-        # If Telegram returns error, show it
         data = resp.json()
         if not data.get("ok"):
             return {"ok": False, "error": data.get("description", "Telegram error")}
@@ -153,6 +157,74 @@ def load_reports_df() -> pd.DataFrame:
     return df
 
 
+def build_tg_message(data: dict) -> str:
+    """
+    Build Telegram message showing ONLY fields that have data (non-empty).
+    """
+    def clean(v):
+        return (v or "").strip()
+
+    lines = ["📋 របាយការណ៍ថ្មី"]
+
+    # Basic info
+    if clean(data.get("date")):
+        lines.append(f"📅 កាលបរិច្ឆេទ: {clean(data['date'])}")
+    if clean(data.get("Time")):
+        lines.append(f"⏰ ម៉ោង: {clean(data['Time'])}")
+    if clean(data.get("shift")):
+        lines.append(f"⏰ វេន: {clean(data['shift'])}")
+    if clean(data.get("name")):
+        lines.append(f"👤 ឈ្មោះ: {clean(data['name'])}")
+
+    # Sales
+    if clean(data.get("total_glasses")):
+        lines.append(f"🥤 ចំនួនកែវ: {clean(data['total_glasses'])}")
+    if clean(data.get("total_money")):
+        lines.append(f"💵 លុយសរុប: {clean(data['total_money'])}")
+
+    # Bank section (only add if any bank field has value)
+    bank_lines = []
+    if clean(data.get("aba_usd")):
+        bank_lines.append(f"🏦 ABA ($): {clean(data['aba_usd'])}")
+    if clean(data.get("aba_khr")):
+        bank_lines.append(f"🏦 ABA (៛): {clean(data['aba_khr'])}")
+    if clean(data.get("acleda_usd")):
+        bank_lines.append(f"🏦 ACLEDA ($): {clean(data['acleda_usd'])}")
+    if clean(data.get("acleda_khr")):
+        bank_lines.append(f"🏦 ACLEDA (៛): {clean(data['acleda_khr'])}")
+    if clean(data.get("other_bank")):
+        bank_lines.append(f"🏦 Other Bank: {clean(data['other_bank'])}")
+
+    if bank_lines:
+        lines.append("")  # blank line
+        lines.extend(bank_lines)
+
+    # Cash/expense section
+    money_lines = []
+    if clean(data.get("cash_usd")):
+        money_lines.append(f"💰 លុយដុល្លារ: {clean(data['cash_usd'])}")
+    if clean(data.get("cash_khr")):
+        money_lines.append(f"💰 លុយរៀល: {clean(data['cash_khr'])}")
+    if clean(data.get("expense")):
+        money_lines.append(f"💸 ចំណាយ: {clean(data['expense'])}")
+
+    if money_lines:
+        lines.append("")
+        lines.extend(money_lines)
+
+    # Balance (show only if status or amount exists)
+    bal_status = clean(data.get("balance_status"))
+    bal_amount = clean(data.get("balance_amount"))
+    if bal_status or bal_amount:
+        if bal_status and bal_amount:
+            lines.append(f"⚖️ ស្ថានភាព: {bal_status} / {bal_amount}")
+        elif bal_status:
+            lines.append(f"⚖️ ស្ថានភាព: {bal_status}")
+        else:
+            lines.append(f"⚖️ ស្ថានភាព: {bal_amount}")
+
+    return "\n".join(lines)
+
 # -----------------------------
 # Routes
 # -----------------------------
@@ -191,31 +263,13 @@ def index():
             uploaded.save(tmp_path)
             attachment_path = tmp_path
 
-        # Telegram message
-        message = (
-            f"📋 របាយការណ៍ថ្មី\n"
-            f"📅 កាលបរិច្ឆេទ: {data['date']}\n"
-            f"⏰ ម៉ោង: {data['Time']}\n"
-            f"⏰ វេន: {data['shift']}\n"
-            f"👤 ឈ្មោះ: {data['name']}\n"
-            f"🥤 ចំនួនកែវ: {data['total_glasses']}\n"
-            f"💵 លុយសរុប: {data['total_money']}\n\n"
-            f"🏦 ABA ($): {data['aba_usd']}\n"
-            f"🏦 ABA (៛): {data['aba_khr']}\n"
-            f"🏦 ACLEDA ($): {data['acleda_usd']}\n"
-            f"🏦 ACLEDA (៛): {data['acleda_khr']}\n"
-            f"🏦 Other Bank: {data['other_bank']}\n\n"
-            f"💰 លុយដុល្លារ: {data['cash_usd']}\n"
-            f"💰 លុយរៀល: {data['cash_khr']}\n"
-            f"💸 ចំណាយ: {data['expense']}\n"
-            f"⚖️ ស្ថានភាព: {data['balance_status']} / {data['balance_amount']}"
-        )
-
+        # Telegram message (ONLY shows fields with data)
+        message = build_tg_message(data)
         send_res = tg_send_message(message)
 
         attach_res = None
         if attachment_path:
-            caption = f"Attachment from {data['name']}"
+            caption = f"Attachment from {data.get('name','').strip() or 'Staff'}"
 
             if attachment_ext in IMAGE_EXTENSIONS:
                 attach_res = tg_send_photo(attachment_path, caption=caption)

@@ -192,6 +192,8 @@ def build_tg_message(data: dict) -> str:
         bank_lines.append(f"🏦 ACLEDA ($): {clean(data['acleda_usd'])}")
     if clean(data.get("acleda_khr")):
         bank_lines.append(f"🏦 ACLEDA (៛): {clean(data['acleda_khr'])}")
+        if clean(data.get("visa_card")):
+        bank_lines.append(f"🏦 Other Bank: {clean(data['visa_card'])}")
     if clean(data.get("other_bank")):
         bank_lines.append(f"🏦 Other Bank: {clean(data['other_bank'])}")
 
